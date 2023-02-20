@@ -14,13 +14,20 @@ import {Attribute, Owner, Token, Transfer} from './model'
 
 export const CONTRACT_ADDRESS = '0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d'
 export const MULTICALL_ADDRESS = '0x5ba1e12693dc8f9c48aad8770482f4739beed696'
+export const MUTLTICALL_BATCH_SIZE = 1000
 
-export const IPFS_GATEWAY = // your ipfs gateway. For example https://mygateway.myfilebase.com/ipfs
+// maximal number of requests to the IPFS gateway per second
+// Use a private gateway to increase the number and speed up
+// the indexing
+export const MAX_IPFS_REQ_SEC = 1
+// replace with a private gateway to avoid rate limits and allow bigger MAX_IPFS_REQ_SEC
+export const IPFS_GATEWAY = 'https://ipfs.filebase.io/ipfs/'
 
 let database = new TypeormDatabase()
 let processor = new EvmBatchProcessor()
     .setDataSource({
         archive: lookupArchive('eth-mainnet'),
+        // replace with a private endpoint for better performance
         chain: 'https://rpc.ankr.com/eth',
     })
     .setBlockRange({
@@ -156,12 +163,15 @@ async function fetchTokens(ctx: Context, block: EvmBlock, tokens: Token[]) {
         erc721.functions.tokenURI,
         CONTRACT_ADDRESS,
         tokens.map((t) => [BigNumber.from(t.index)]),
-        1000 // to prevent timeout we will use paggination
+        MUTLTICALL_BATCH_SIZE // to prevent timeout we will use paggination
     )
 
     let metadatas: (TokenMetadata | undefined)[] = []
-    for (let batch of splitIntoBatches(tokenURIs, 1000)) {
-        let m = await Promise.all(batch.map((uri) => fetchTokenMetadata(ctx, uri)))
+    for (let batch of splitIntoBatches(tokenURIs, MAX_IPFS_REQ_SEC)) {
+        let m = await Promise.all(batch.map((uri, index) => {
+            // spread out the requests evenly within a second interval
+            return sleep(Math.ceil(1000*(index+1)/MAX_IPFS_REQ_SEC)).then(() => fetchTokenMetadata(ctx, uri))
+        }))
         metadatas.push(...m)
     }
 
@@ -194,24 +204,33 @@ const ipfsRegExp = /^ipfs:\/\/(.+)$/
 async function fetchTokenMetadata(ctx: Context, uri: string): Promise<TokenMetadata | undefined> {
     try {
         if (uri.startsWith('ipfs://')) {
-            let res = await client.get(path.posix.join(IPFS_GATEWAY, ipfsRegExp.exec(uri)![1]))
-            ctx.log.debug(`Successfully fetched metadata of ${uri}`)
+            const gatewayURL = path.posix.join(IPFS_GATEWAY, ipfsRegExp.exec(uri)![1])
+            let res = await client.get(gatewayURL)
+            ctx.log.info(`Successfully fetched metadata from ${gatewayURL}`)
             return res.data
         } else if (uri.startsWith('http://') || uri.startsWith('https://')) {
             let res = await client.get(uri)
-            ctx.log.debug(`Successfully fetched metadata of ${uri}`)
+            ctx.log.info(`Successfully fetched metadata from ${uri}`)
             return res.data
         } else {
+            ctx.log.warn(`Unexpected metadata URL protocol: ${uri}`)
             return undefined
         }
     } catch (e) {
-        throw new Error(`failed to fetch metadata of ${uri}. Error: ${e}`)
+        throw new Error(`failed to fetch metadata at ${uri}. Error: ${e}`)
     }
 }
 
+//////////////////////////////
+// Utility functions 
+/////////////////////////////
 function last<T>(arr: T[]): T {
     assert(arr.length > 0)
     return arr[arr.length - 1]
+}
+
+function sleep(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function* splitIntoBatches<T>(list: T[], maxBatchSize: number): Generator<T[]> {

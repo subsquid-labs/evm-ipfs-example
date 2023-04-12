@@ -21,7 +21,7 @@ export const MUTLTICALL_BATCH_SIZE = 1000
 // the indexing
 export const MAX_IPFS_REQ_SEC = 1
 // replace with a private gateway to avoid rate limits and allow bigger MAX_IPFS_REQ_SEC
-export const IPFS_GATEWAY = 'https://ipfs.filebase.io/ipfs/'
+export const IPFS_GATEWAY = 'https://subsquid.myfilebase.com/ipfs/'
 
 let database = new TypeormDatabase()
 let processor = new EvmBatchProcessor()

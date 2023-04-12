@@ -14,7 +14,7 @@ import {Attribute, Owner, Token, Transfer} from './model'
 
 export const CONTRACT_ADDRESS = '0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d'
 export const MULTICALL_ADDRESS = '0x5ba1e12693dc8f9c48aad8770482f4739beed696'
-export const MUTLTICALL_BATCH_SIZE = 1000
+export const MUTLTICALL_BATCH_SIZE = 50
 
 // maximal number of requests to the IPFS gateway per second
 // Use a private gateway to increase the number and speed up

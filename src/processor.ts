@@ -1,8 +1,3 @@
-import assert from 'assert'
-import https from 'https'
-import path from 'path'
-import {In} from 'typeorm'
-import {lookupArchive} from '@subsquid/archive-registry'
 import {
     BlockHeader,
     DataHandlerContext,
@@ -11,21 +6,19 @@ import {
     Log as _Log,
     Transaction as _Transaction,
 } from '@subsquid/evm-processor'
-import {Store, TypeormDatabase} from '@subsquid/typeorm-store'
 import * as erc721 from './abi/erc721'
-import {Multicall} from './abi/multicall'
-import {Attribute, Owner, Token, Transfer} from './model'
+import {Store} from '@subsquid/typeorm-store'
 
 export const CONTRACT_ADDRESS = '0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d'
 export const MULTICALL_ADDRESS = '0xeefba1e63905ef1d7acba5a8513c70307c1ce441'
 
 export const processor = new EvmBatchProcessor()
-    .setDataSource({
-        archive: lookupArchive('eth-mainnet'),
-        // replace with a private endpoint for better performance
-        chain: 'https://rpc.ankr.com/eth',
+    .setGateway('https://v2.archive.subsquid.io/network/ethereum-mainnet')
+    .setRpcEndpoint({
+        url: 'https://rpc.ankr.com/eth',
+        rateLimit: 10
     })
-    .setFinalityConfirmation(10)
+    .setFinalityConfirmation(75)
     .setBlockRange({
         from: 12_287_507,
     })
